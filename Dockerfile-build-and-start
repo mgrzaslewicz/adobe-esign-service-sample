@@ -1,0 +1,37 @@
+FROM adoptopenjdk/openjdk13:alpine
+
+# install maven
+ENV MAVEN_VERSION 3.5.4
+ENV MAVEN_HOME /usr/lib/mvn
+ENV PATH $MAVEN_HOME/bin:$PATH
+
+WORKDIR /tmp
+
+RUN wget http://archive.apache.org/dist/maven/maven-3/$MAVEN_VERSION/binaries/apache-maven-$MAVEN_VERSION-bin.tar.gz && \
+  tar -zxvf apache-maven-$MAVEN_VERSION-bin.tar.gz && \
+  rm apache-maven-$MAVEN_VERSION-bin.tar.gz && \
+  mv apache-maven-$MAVEN_VERSION /usr/lib/mvn
+
+# build jar
+RUN mkdir -p /app/build/src
+COPY src/ /app/build/src/
+RUN ls -la /app/build/src
+COPY pom.xml /app/build
+WORKDIR /app/build
+RUN mvn package
+
+# remove maven
+WORKDIR /tmp
+RUN rm -rf apache-maven-*
+RUN rm -rf /usr/lib/mvn
+
+# copy jar
+WORKDIR /app
+RUN cp build/target/adobe-esign-service-sample*.jar /app/adobe-esign-service-sample.jar
+
+# remove source and build files
+RUN rm -rf build
+
+RUN mkdir -p /app/data
+EXPOSE 80
+ENTRYPOINT ["java", "-XX:+ExitOnOutOfMemoryError", "-XX:+HeapDumpOnOutOfMemoryError", "-XX:HeapDumpPath=/app/data", "-XX:+PrintFlagsFinal", "-XX:MaxRAMPercentage=75.0", "-Djava.security.egd=file:/dev/./urandom", "-jar", "adobe-esign-service-sample.jar"]
